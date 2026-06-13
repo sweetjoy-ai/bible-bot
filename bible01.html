@@ -249,6 +249,7 @@
     .v-text { font-size: 15px; line-height: 1.9; word-break: keep-all; }
     .v-text.ko { font-weight: 500; }
     .v-text.en { color: var(--sub); font-style: italic; font-size: 13px; }
+    body.dark .v-text.en { color: #e8dab8; }
     .v-text.empty { color: var(--line); font-size: 13px; font-style: italic; }
 
     .input-wrap { display: flex; flex-direction: column; gap: 2px; }
@@ -490,6 +491,19 @@ async function fetchKO(slug,ch){
 async function loadChapter(slug,ch){
   const k=`${slug}:${ch}`;
   if(cache.has(k)) return cache.get(k);
+
+  /* localStorage 캐시 확인 — 오프라인에서도 이전에 본 장은 열림 */
+  const lsKey=`bibleText:${k}`;
+  const cached=localStorage.getItem(lsKey);
+  if(cached){
+    try{
+      const result=JSON.parse(cached);
+      cache.set(k,result);
+      return result;
+    }catch(_){}
+  }
+
+  /* 온라인: API에서 fetch */
   const [er,kr] = await Promise.allSettled([fetchEN(slug,ch),fetchKO(slug,ch)]);
   const en = er.status==="fulfilled"?er.value:null;
   const ko = kr.status==="fulfilled"?kr.value:null;
@@ -500,6 +514,10 @@ async function loadChapter(slug,ch){
   });
   const result={verses,enOk:!!en,koOk:!!ko};
   cache.set(k,result);
+
+  /* localStorage에 저장 — 용량 초과 시 조용히 무시 */
+  try{ localStorage.setItem(lsKey,JSON.stringify(result)); }catch(_){}
+
   return result;
 }
 
